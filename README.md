@@ -80,6 +80,3 @@ The agent can only use **read-only** tools (search/read email, list calendar eve
 - **Privacy trade-off.** My email and calendar are read by an AI model every morning. I limited it to read-only access and a 2-day email window.
 - **Speed.** Each run takes ~30 seconds because the agent makes several tool calls. That's fine for a morning job but too slow for instant refresh.
 
-## Built with AI
-
-This project was 100% vibe-coded: every line was written by Claude (Claude Code) from natural-language requests. My role was defining the problem, making design decisions, and testing.
