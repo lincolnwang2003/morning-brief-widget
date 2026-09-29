@@ -1,0 +1,61 @@
+name: MorningBrief
+options:
+  bundleIdPrefix: com.lincolnwang
+  projectFormat: xcode15_3
+  deploymentTarget:
+    macOS: "14.0"
+settings:
+  base:
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.0"
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_STYLE: Manual
+    DEVELOPMENT_TEAM: ""
+    ENABLE_HARDENED_RUNTIME: NO
+targets:
+  MorningBrief:
+    type: application
+    platform: macOS
+    sources:
+      - MorningBrief
+      - Shared
+      - path: ../prompt.md
+        buildPhase: resources
+    dependencies:
+      - target: MorningBriefWidget
+    info:
+      path: MorningBrief/Info.plist
+      properties:
+        CFBundleDisplayName: Morning Brief
+        LSUIElement: true
+        LSApplicationCategoryType: public.app-category.productivity
+        NSHumanReadableCopyright: "Built with Claude Code"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.lincolnwang.MorningBrief
+        PRODUCT_NAME: Morning Brief
+        GENERATE_INFOPLIST_FILE: NO
+  MorningBriefWidget:
+    type: app-extension
+    platform: macOS
+    sources:
+      - Widget
+      - Shared
+    info:
+      path: Widget/Info.plist
+      properties:
+        CFBundleDisplayName: Morning Brief
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: Widget/Widget.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.temporary-exception.files.home-relative-path.read-only:
+          - /Library/Application Support/MorningBrief/
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.lincolnwang.MorningBrief.Widget
+        PRODUCT_NAME: MorningBriefWidget
+        GENERATE_INFOPLIST_FILE: NO

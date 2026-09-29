@@ -32,6 +32,8 @@ Score every task, then sort each list by priority (high first), then by time.
 - `today` = things I must do or attend today. `upcoming` = things in the following {lookahead} days,
   including big deadlines I should start working on now.
 - Keep titles short (under 60 characters). `reason` is one short phrase explaining the priority.
+- `context` is 1-2 plain sentences of facts from the source: what it is, who asked, what is required,
+  how big it is (points, exam, team deliverable). A separate model ranks items from this text alone.
 - Write in {language}.
 
 ## Output
@@ -40,10 +42,11 @@ Reply with ONLY a JSON object, no prose and no code fences, in exactly this shap
   "summary": "one sentence describing my day",
   "today": [
     {{"title": "...", "time": "HH:MM or null", "priority": "high|medium|low",
-      "sources": ["canvas"|"calendar"|"gmail"], "reason": "...", "link": "url or null"}}
+      "sources": ["canvas"|"calendar"|"gmail"], "reason": "...", "context": "...",
+      "link": "url or null"}}
   ],
   "upcoming": [
     {{"date": "YYYY-MM-DD", "title": "...", "time": "HH:MM or null", "priority": "high|medium|low",
-      "sources": ["..."], "reason": "...", "link": "url or null"}}
+      "sources": ["..."], "reason": "...", "context": "...", "link": "url or null"}}
   ]
 }}

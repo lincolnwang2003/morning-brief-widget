@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import canvas
+from local import kev_rank
 
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
@@ -120,6 +121,13 @@ def main():
         (DATA / "canvas.json").write_text(json.dumps(canvas_items, indent=2, ensure_ascii=False))
 
         result = parse_result(run_agent(cfg, build_prompt(cfg, canvas_items)))
+        result["ranker"] = "Claude"
+        if cfg.get("local_ranker") == "kev":
+            try:
+                result = kev_rank.rerank(result, log)
+            except Exception as e:  # the local model is optional: keep Claude's order
+                log(f"kev ranking skipped: {e}")
+                result["ranker"] = "Claude (local model unavailable)"
         result.update(status="ok", error=None, generated_at=datetime.now().isoformat(timespec="minutes"))
         write_output(result)
         log(f"done: {len(result['today'])} today, {len(result['upcoming'])} upcoming")

@@ -63,7 +63,8 @@ const Item = ({ item }) => {
       <div>
         <div className={titleCss}>{item.title}</div>
         <div className={meta}>
-          {[item.time, (item.sources || []).map((s) => SOURCE_LABEL[s] || s).join(" · "), item.reason]
+          {[item.time, (item.sources || []).map((s) => SOURCE_LABEL[s] || s).join(" · "), item.reason,
+            item.confidence != null && `${Math.round(item.confidence * 100)}% sure`]
             .filter(Boolean)
             .join("  ·  ")}
         </div>
@@ -108,7 +109,9 @@ export const render = ({ output }) => {
 
       {data.status === "error" && <div className={errorCss}>⚠ Last update failed: {data.error}</div>}
       {data.generated_at && (
-        <div className={footer}>Updated {data.generated_at.replace("T", " ")}</div>
+        <div className={footer}>
+          Updated {data.generated_at.replace("T", " ")}{data.ranker && ` · Ranked by ${data.ranker}`}
+        </div>
       )}
     </div>
   );
