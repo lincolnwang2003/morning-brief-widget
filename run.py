@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Morning pipeline: Canvas feed -> Claude agent (Gmail + Calendar connectors) -> data/today.json.
+"""Morning pipeline: Canvas feed -> Claude agent (Gmail + Calendar connectors) collects tasks
+-> tasks.py groups them by date -> Kev-4B ranks them locally -> data/today.json.
 
 The Übersicht widget reads data/today.json. launchd runs this every morning.
 """
@@ -10,10 +11,11 @@ import re
 import shutil
 import subprocess
 import sys
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import canvas
+import tasks
 from local import kev_rank
 
 ROOT = Path(__file__).resolve().parent
@@ -97,9 +99,8 @@ def parse_result(text):
     if not match:
         raise ValueError(f"no JSON in agent reply: {text[:200]}")
     result = json.loads(match.group(0))
-    for key in ("today", "upcoming"):
-        if not isinstance(result.get(key), list):
-            raise ValueError(f"agent reply missing list '{key}'")
+    if not isinstance(result.get("items"), list):
+        raise ValueError("agent reply missing list 'items'")
     return result
 
 
@@ -120,15 +121,23 @@ def main():
         log(f"canvas: {len(canvas_items)} items")
         (DATA / "canvas.json").write_text(json.dumps(canvas_items, indent=2, ensure_ascii=False))
 
-        result = parse_result(run_agent(cfg, build_prompt(cfg, canvas_items)))
-        result["ranker"] = "Claude"
+        reply = parse_result(run_agent(cfg, build_prompt(cfg, canvas_items)))
+        today = date.today()
+        items = tasks.normalize(reply["items"], today, cfg.get("lookahead_days", 3))
+        log(f"agent: {len(reply['items'])} items, {len(items)} in range")
+
+        ranker = "Claude"
         if cfg.get("local_ranker") == "kev":
             try:
-                result = kev_rank.rerank(result, log)
-            except Exception as e:  # the local model is optional: keep Claude's order
+                ranker = kev_rank.rank(items, log)
+            except Exception as e:  # the local model is optional: keep Claude's priorities
                 log(f"kev ranking skipped: {e}")
-                result["ranker"] = "Claude (local model unavailable)"
-        result.update(status="ok", error=None, generated_at=datetime.now().isoformat(timespec="minutes"))
+                ranker = "Claude (local model unavailable)"
+
+        today_items, upcoming = tasks.split(items, today)
+        result = {"summary": reply.get("summary", ""), "today": today_items, "upcoming": upcoming,
+                  "ranker": ranker, "status": "ok", "error": None,
+                  "generated_at": datetime.now().isoformat(timespec="minutes")}
         write_output(result)
         log(f"done: {len(result['today'])} today, {len(result['upcoming'])} upcoming")
     except Exception as e:  # keep yesterday's list visible and show the error in the widget

@@ -53,7 +53,8 @@ Ranking rules live in plain English in [`prompt.md`](prompt.md), so they're easy
 | `prompt.md` | Instructions for the agent: sources, ranking rules, output format |
 | `run.py` | Pipeline: Canvas → Claude agent → Kev → `data/today.json` |
 | `local/kev_server.py` | Local Kev-4B server using the 8-bit MLX weights |
-| `local/kev_rank.py` | Scores and re-sorts each task with Kev |
+| `tasks.py` | Groups tasks by date, removes duplicates and finished tasks (no AI) |
+| `local/kev_rank.py` | Scores each task with Kev and applies the priority rules |
 | `app/` | Experimental native menu bar app + widget + DMG (see below) |
 | `widget/daily-todo.widget/` | Übersicht desktop widget |
 | `launchd/` | macOS schedule (7:00 daily + at login) |
@@ -79,8 +80,10 @@ small local model: [Kev-4B](https://huggingface.co/jaredpalmer/kev-4b), in the 8
 [RoderickQiu/kev-4b-mlx-8bit](https://huggingface.co/RoderickQiu/kev-4b-mlx-8bit). Kev is a *decision model*: it can't
 chat or call tools, but it answers a multiple-choice question with calibrated probabilities.
 
-For every task Claude collected, Kev answers "high, medium or low priority?" using the same rules as `prompt.md`.
-The widget shows its confidence ("61% sure"), and `claude_priority` keeps Claude's original answer for comparison.
+For every task Claude collected, Kev answers six concrete yes/no questions (is it an exam? a graded deliverable?
+did a professor ask? does it need prep or a reply? is it a meeting? is it optional?). Code then applies the rules
+from `prompt.md` to those facts plus the number of days until the date, and writes a readable reason such as
+"Exam · tomorrow · 91%". `claude_priority` keeps Claude's original answer for comparison.
 
 - **Same input, same answer.** Two runs on the same tasks gave identical scores.
 - **It sometimes follows the rules better.** A professor asked every team to schedule a project review. Claude
@@ -113,13 +116,39 @@ The agent can only use **read-only** tools (search/read email, list calendar eve
 
 ## Challenges & limitations
 
-- **Results vary between runs.** The same inputs produced "0 today / 6 upcoming" on one run and "1 today / 5 upcoming" on the next. Local ranking with Kev fixes the *order* (identical across runs), but which tasks Claude collects can still vary.
-- **The local model isn't very sure.** Kev's confidence is mostly 41–61% on a three-way choice (33% would be a guess). Showing that number is honest, but it means borderline items could go either way.
-- **Local isn't fully local.** Reading Gmail and Calendar still goes through Claude in the cloud. Only the ranking runs on my Mac. Fully offline would need a local model that can use tools, plus my own Google sign-in.
-- **Slow and heavy on my laptop.** On an M2 with 16 GB and a nearly full disk, Kev takes ~4 s per task (~45 s for 11 tasks) and needs ~5 GB of disk. The whole morning run takes about 1.5 minutes.
-- **Canvas feed doesn't know what I've submitted.** Finished assignments still appear until their due date passes. The full Canvas API would fix this but needs a personal access token.
-- **"Importance" is subjective.** The rules in `prompt.md` are my own heuristics; the agent can still misjudge an email's urgency.
+### Problems I found and fixed
+
+**1. The same data gave different lists.**
+*Problem:* Claude decided what counted as "today", so identical inputs produced "0 today / 6 upcoming" on one run and
+"1 today / 5 upcoming" on the next.
+*Fix:* Claude now only collects tasks with their dates. Plain code (`tasks.py`) groups them by day, drops past ones,
+and removes duplicates. Date math doesn't need AI.
+*Still true:* which emails Claude decides are worth collecting can vary a little between runs.
+
+**2. The local model wasn't sure of itself.**
+*Problem:* asking Kev one fuzzy question ("high, medium or low?") gave only 41–61% confidence, where 33% is a guess.
+*Fix:* I split it into six concrete yes/no questions ("is this an exam?", "did a professor ask?"). Kev answers
+those with 53–92% confidence, and code applies my rules. The widget now shows *why*: "Exam · tomorrow · 91%".
+*What testing caught:* the first wording flagged a "final project progress review" meeting as an exam (86%).
+Asking "is the item itself a test, as opposed to a meeting, review or discussion?" dropped it to 7% while real
+quizzes stayed at 79–91%. A rule-order bug also made an optional RSVP "high"; optional now wins over "do today".
+
+**3. Finished assignments kept showing up.**
+*Problem:* the Canvas calendar feed doesn't know what I've submitted.
+*Fix:* a ✓ button on each task. Checked tasks disappear right away and stay hidden on later runs (they have a
+stable id built from the Canvas/Gmail link). Undo is in the footer.
+*Still true:* it's manual. The Canvas API could check submissions automatically but needs a personal access token.
+
+### Limitations I accepted
+
+- **Local isn't fully local.** Reading Gmail and Calendar still goes through Claude in the cloud; only the ranking
+  runs on my Mac. That's a deliberate split: the cloud model reads messy email well, the local model ranks
+  consistently. Fully offline would need a local model that can use tools, plus my own Google sign-in.
+- **"Importance" is my opinion.** The rules are my own heuristics. They're now written as explicit, checkable rules
+  in `local/kev_rank.py`, which makes them easy to change, but not objective.
+- **Slow and heavy.** On an M2 with 16 GB and a nearly full disk, a morning run takes about 2 minutes (Kev ~4 s per
+  task) and the model needs ~5 GB of disk. Fine for a job that runs before I'm awake, too slow for instant refresh.
 - **Only runs when my Mac is on.** If the laptop is off at 7:00, it updates at the next login instead.
-- **Privacy trade-off.** My email and calendar are read by an AI model every morning. I limited it to read-only access and a 2-day email window.
-- **Speed.** Each run takes ~30 seconds because the agent makes several tool calls. That's fine for a morning job but too slow for instant refresh.
+- **Privacy trade-off.** My email and calendar are read by an AI model every morning. I limited it to read-only
+  access and a 2-day email window.
 
