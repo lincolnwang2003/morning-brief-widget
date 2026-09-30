@@ -23,6 +23,20 @@ const card = css`
   border-radius: 18px;
   padding: 16px 18px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+  /* Never taller than the screen: header and footer stay put, the list scrolls. 40px top + room for the Dock. */
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 150px);
+  box-sizing: border-box;
+`;
+const scroll = css`
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin-right: -10px;
+  padding-right: 10px;
+  &::-webkit-scrollbar { width: 5px; }
+  &::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 3px; }
 `;
 const header = css`
   display: flex; justify-content: space-between; align-items: baseline;
@@ -133,18 +147,20 @@ export const render = ({ output, hidden }, dispatch) => {
           {data.status === "running" ? "Updating…" : "Refresh"}
         </button>
       </div>
-      {data.summary && <p className={summary}>{data.summary}</p>}
+      <div className={scroll}>
+        {data.summary && <p className={summary}>{data.summary}</p>}
 
-      <div className={h2}>Today</div>
-      {today.length ? today.map((it) => <Item key={it.id || it.title} item={it} dispatch={dispatch} />)
-                    : <div className={meta}>{data.generated_at ? "Nothing left for today 🎉" : "Nothing yet — click Refresh."}</div>}
+        <div className={h2}>Today</div>
+        {today.length ? today.map((it) => <Item key={it.id || it.title} item={it} dispatch={dispatch} />)
+                      : <div className={meta}>{data.generated_at ? "Nothing left for today 🎉" : "Nothing yet — click Refresh."}</div>}
 
-      {Object.keys(byDate).sort().map((d) => (
-        <div key={d}>
-          <div className={h2}>{dayLabel(d)}</div>
-          {byDate[d].map((it) => <Item key={it.id || it.title} item={it} dispatch={dispatch} />)}
-        </div>
-      ))}
+        {Object.keys(byDate).sort().map((d) => (
+          <div key={d}>
+            <div className={h2}>{dayLabel(d)}</div>
+            {byDate[d].map((it) => <Item key={it.id || it.title} item={it} dispatch={dispatch} />)}
+          </div>
+        ))}
+      </div>
 
       {data.status === "error" && <div className={errorCss}>⚠ Last update failed: {data.error}</div>}
       {data.generated_at && (
